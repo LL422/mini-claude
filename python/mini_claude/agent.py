@@ -86,10 +86,20 @@ MODEL_CONTEXT = {
     "claude-opus-4-20250514": 200000,
     "gpt-4o": 128000,
     "gpt-4o-mini": 128000,
+    # DeepSeek models (Anthropic-compatible endpoint)
+    "deepseek-v4-pro": 200000,
+    "deepseek-v4-pro[1m]": 1000000,
+    "deepseek-chat": 128000,
+    # Qwen / Tongyi Qianwen (OpenAI-compatible endpoint)
+    "qwen-max": 128000,
+    "qwen-plus": 128000,
+    "qwen-turbo": 128000,
 }
 
 
 def _get_context_window(model: str) -> int:
+    if model.startswith("ollama/"):
+        return 128000  # default for local Ollama models
     return MODEL_CONTEXT.get(model, 200000)
 
 

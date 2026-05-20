@@ -31,6 +31,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--thinking", action="store_true", help="Enable extended thinking")
     parser.add_argument("--model", "-m", default=None, help="Model to use")
     parser.add_argument("--api-base", default=None, help="OpenAI-compatible API base URL")
+    parser.add_argument("--provider", default=None, choices=["deepseek", "ollama", "openai", "anthropic"],
+                        help="Pre-configured provider (deepseek, ollama, openai, anthropic)")
     parser.add_argument("--resume", action="store_true", help="Resume last session")
     parser.add_argument("--max-cost", type=float, default=None, help="Max USD spend")
     parser.add_argument("--max-turns", type=int, default=None, help="Max agentic turns")
@@ -217,6 +219,7 @@ Options:
   --thinking          Enable extended thinking (Anthropic only)
   --model, -m         Model to use (default: claude-opus-4-6, or MINI_CLAUDE_MODEL env)
   --api-base URL      Use OpenAI-compatible API endpoint (key via env var)
+  --provider NAME     Pre-configured provider: deepseek, ollama, openai, anthropic
   --resume            Resume the last session
   --max-cost USD      Stop when estimated cost exceeds this amount
   --max-turns N       Stop after N agentic turns
@@ -236,6 +239,8 @@ Examples:
   mini-claude --yolo "run all tests and fix failures"
   mini-claude --plan "how would you refactor this?"
   mini-claude --max-cost 0.50 --max-turns 20 "implement feature X"
+  DEEPSEEK_API_KEY=sk-xxx mini-claude --provider deepseek "help me write a function"
+  mini-claude --provider ollama --model ollama/qwen2.5 "explain this code"
   OPENAI_API_KEY=sk-xxx mini-claude --api-base https://aihubmix.com/v1 --model gpt-4o "hello"
   mini-claude --resume
   mini-claude  # starts interactive REPL
@@ -251,28 +256,55 @@ Examples:
     resolved_api_key: str | None = None
     resolved_use_openai = bool(api_base)
 
+    # --provider flag presets
+    if args.provider == "deepseek":
+        resolved_api_key = os.environ.get("DEEPSEEK_API_KEY") or resolved_api_key
+        resolved_api_base = resolved_api_base or "https://api.deepseek.com/anthropic"
+        resolved_use_openai = False
+        if not model or model == "claude-opus-4-6":
+            model = "deepseek-v4-pro"
+    elif args.provider == "ollama":
+        resolved_api_key = resolved_api_key or "ollama"  # Ollama doesn't need a real key
+        resolved_api_base = resolved_api_base or "http://localhost:11434/v1"
+        resolved_use_openai = True
+        if not model or model == "claude-opus-4-6":
+            model = "ollama/qwen2.5"
+    elif args.provider == "openai":
+        resolved_use_openai = True
+    elif args.provider == "anthropic":
+        resolved_use_openai = False
+
+    # Environment variable detection
+    if os.environ.get("DEEPSEEK_API_KEY") and not resolved_api_key:
+        resolved_api_key = os.environ["DEEPSEEK_API_KEY"]
+        resolved_api_base = resolved_api_base or "https://api.deepseek.com/anthropic"
+        resolved_use_openai = False
+        model = model or "deepseek-v4-pro"
+
     if os.environ.get("OPENAI_API_KEY") and os.environ.get("OPENAI_BASE_URL"):
-        resolved_api_key = os.environ["OPENAI_API_KEY"]
+        resolved_api_key = resolved_api_key or os.environ["OPENAI_API_KEY"]
         resolved_api_base = resolved_api_base or os.environ.get("OPENAI_BASE_URL")
         resolved_use_openai = True
     elif os.environ.get("ANTHROPIC_API_KEY"):
-        resolved_api_key = os.environ["ANTHROPIC_API_KEY"]
+        resolved_api_key = resolved_api_key or os.environ["ANTHROPIC_API_KEY"]
         resolved_api_base = resolved_api_base or os.environ.get("ANTHROPIC_BASE_URL")
         resolved_use_openai = False
     elif os.environ.get("OPENAI_API_KEY"):
-        resolved_api_key = os.environ["OPENAI_API_KEY"]
+        resolved_api_key = resolved_api_key or os.environ["OPENAI_API_KEY"]
         resolved_api_base = resolved_api_base or os.environ.get("OPENAI_BASE_URL")
         resolved_use_openai = True
 
     if not resolved_api_key and api_base:
-        resolved_api_key = os.environ.get("OPENAI_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
+        resolved_api_key = os.environ.get("OPENAI_API_KEY") or os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("DEEPSEEK_API_KEY")
         resolved_use_openai = True
 
     if not resolved_api_key:
         print_error(
             "API key is required.\n"
             "  Set ANTHROPIC_API_KEY (+ optional ANTHROPIC_BASE_URL) for Anthropic format,\n"
-            "  or OPENAI_API_KEY + OPENAI_BASE_URL for OpenAI-compatible format."
+            "  DEEPSEEK_API_KEY for DeepSeek (Anthropic-compatible),\n"
+            "  or OPENAI_API_KEY + OPENAI_BASE_URL for OpenAI-compatible format.\n"
+            "  Use --provider ollama for local free models (no key needed)."
         )
         sys.exit(1)
 
