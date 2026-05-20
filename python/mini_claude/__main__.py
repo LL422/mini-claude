@@ -7,6 +7,8 @@ import asyncio
 import os
 import signal
 import sys
+import time
+from pathlib import Path
 
 from .agent import Agent
 from .ui import print_welcome, print_user_prompt, print_error, print_info, print_plan_for_approval, print_plan_approval_options
@@ -138,6 +140,18 @@ async def run_repl(agent: Agent) -> None:
                 await agent.compact()
             except Exception as e:
                 print_error(str(e))
+            continue
+        if inp.startswith("/export"):
+            parts = inp.split(maxsplit=1)
+            filename = parts[1] if len(parts) > 1 else None
+            text = agent.get_conversation_text()
+            if not text:
+                print_info("No conversation to export.")
+            else:
+                if filename is None:
+                    filename = f"conversation-{time.strftime('%Y-%m-%d-%H%M%S')}.md"
+                Path(filename).write_text(text, encoding="utf-8")
+                print_info(f"Conversation exported to {filename} ({len(text)} chars)")
             continue
         if inp == "/memory":
             memories = list_memories()

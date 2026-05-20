@@ -388,6 +388,88 @@ class Agent:
         turn_info = f" | Turns: {self.current_turns}/{self.max_turns}" if self.max_turns else ""
         print_info(f"Tokens: {self.total_input_tokens} in / {self.total_output_tokens} out\n  Estimated cost: ${total:.4f}{budget_info}{turn_info}")
 
+    def get_conversation_text(self) -> str:
+        """Format the conversation history as a Markdown string for export."""
+        messages = self._openai_messages if self.use_openai else self._anthropic_messages
+        if not messages:
+            return ""
+
+        lines = [
+            "# Mini Claude Conversation",
+            f"Date: {time.strftime('%Y-%m-%d %H:%M:%S')}",
+            f"Model: {self.model}",
+            "",
+            "---",
+            "",
+        ]
+
+        for msg in messages:
+            role = msg.get("role", "")
+            content = msg.get("content", "")
+
+            if role == "system":
+                continue
+
+            if role == "user":
+                if isinstance(content, str):
+                    lines.append("## User")
+                    lines.append("")
+                    lines.append(content)
+                    lines.append("")
+                elif isinstance(content, list):
+                    for block in content:
+                        if isinstance(block, dict):
+                            if block.get("type") == "tool_result":
+                                result_text = block.get("content", "")
+                                tool_id = block.get("tool_use_id", "")
+                                lines.append("## Tool Result")
+                                if tool_id:
+                                    lines.append(f"*tool_use_id: {tool_id}*")
+                                lines.append("")
+                                lines.append("```")
+                                if isinstance(result_text, str):
+                                    lines.append(result_text[:3000])
+                                lines.append("```")
+                                lines.append("")
+                            elif block.get("type") == "text":
+                                lines.append("## User")
+                                lines.append("")
+                                lines.append(block.get("text", ""))
+                                lines.append("")
+
+            elif role == "assistant":
+                if isinstance(content, list):
+                    for block in content:
+                        if isinstance(block, dict):
+                            if block.get("type") == "text":
+                                lines.append("## Assistant")
+                                lines.append("")
+                                lines.append(block.get("text", ""))
+                                lines.append("")
+                            elif block.get("type") == "tool_use":
+                                name = block.get("name", "unknown")
+                                inp = block.get("input", {})
+                                lines.append(f"## Tool: {name}")
+                                lines.append("")
+                                lines.append(f"**Input:** `{json.dumps(inp, ensure_ascii=False)}`")
+                                lines.append("")
+                elif isinstance(content, str) and content:
+                    lines.append("## Assistant")
+                    lines.append("")
+                    lines.append(content)
+                    lines.append("")
+
+            elif role == "tool":
+                lines.append("## Tool Result")
+                lines.append("")
+                lines.append("```")
+                if isinstance(content, str):
+                    lines.append(content[:3000])
+                lines.append("```")
+                lines.append("")
+
+        return "\n".join(lines)
+
     def _get_current_cost_usd(self) -> float:
         return (self.total_input_tokens / 1_000_000) * 3 + (self.total_output_tokens / 1_000_000) * 15
 
