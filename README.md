@@ -4,31 +4,31 @@
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](#)
 [![Lines of Code](https://img.shields.io/badge/~4200_lines-python-green)](#)
 
-> 一个轻量级 AI 编程助手，在终端里用自然语言完成编码任务——读代码、写文件、搜资料、跑命令。
+> A lightweight AI coding assistant that works in your terminal. Read code, write files, search the web, run commands — all through natural language.
 
-基于 [claude-code-from-scratch](https://github.com/Windy3f3f3f3f/claude-code-from-scratch) (MIT) 二次开发，新增了错误自修复、网页搜索、流式 Shell、多模型支持、对话导出和路径级权限等实用能力。
-
----
-
-## 能做什么
-
-在终端里跟 AI 对话，它可以：
-
-- **读写代码** — 读文件、写文件、精确编辑
-- **搜索项目** — 按文件名或正则搜代码
-- **执行命令** — 跑测试、安装依赖、git 操作，输出实时显示
-- **上网搜索** — 查最新文档、报错解决方案
-- **自我纠错** — 工具出错不崩，AI 自己分析原因并修正
-- **导出对话** — 把好的交流保存成 Markdown 笔记
-- **记住偏好** — 跨会话记住你的习惯和项目约定
-- **派分身** — 启动子代理独立完成搜索、规划、审查等子任务
-- **接入外部工具** — 通过 MCP 协议连接第三方工具服务器
+Built on [claude-code-from-scratch](https://github.com/Windy3f3f3f3f/claude-code-from-scratch) (MIT), with added error self-healing, web search, streaming shell, multi-model support, conversation export, and path-level permissions.
 
 ---
 
-## 快速开始
+## Features
 
-需要 Python 3.11+。
+Chat with AI in your terminal. It can:
+
+- **Read & write code** — read files, create files, make precise edits
+- **Search your project** — find files by glob pattern, search code with regex
+- **Run commands** — execute tests, install dependencies, git operations with real-time output
+- **Search the web** — look up current docs, error solutions, API references
+- **Self-heal errors** — when a tool fails, the AI analyzes the error and tries a different approach
+- **Export conversations** — save chats as Markdown notes
+- **Remember preferences** — cross-session memory for your coding habits
+- **Delegate to sub-agents** — spawn isolated agents for search, planning, and code review
+- **Connect external tools** — MCP protocol for third-party tool servers
+
+---
+
+## Quick Start
+
+Requires Python 3.11+.
 
 ```bash
 git clone https://github.com/LL422/mini-claude.git
@@ -36,129 +36,127 @@ cd mini-claude/python
 pip install -e .
 ```
 
-### 配置 API Key
+### API Configuration
 
-支持三种后端，任选一种：
+Three backend options, pick one:
 
 ```bash
-# DeepSeek（便宜，推荐）
+# DeepSeek (Anthropic-compatible, affordable)
 export DEEPSEEK_API_KEY="sk-xxx"
 mini-claude-py --provider deepseek
 
-# Ollama 本地模型（免费，需先装 Ollama）
+# Ollama local model (free, requires Ollama installed)
 mini-claude-py --provider ollama --model ollama/qwen2.5
 
-# Anthropic Claude（原生）
+# Anthropic Claude (native)
 export ANTHROPIC_API_KEY="sk-ant-xxx"
 mini-claude-py
 
-# OpenAI 兼容（通义千问、GPT 等）
+# OpenAI-compatible (Qwen, GPT, etc.)
 export OPENAI_API_KEY="sk-xxx"
 export OPENAI_BASE_URL="https://api.openai.com/v1"
 mini-claude-py --api-base $OPENAI_BASE_URL
 ```
 
-### 运行
+### Run
 
 ```bash
-mini-claude-py                    # 交互式 REPL 模式
-mini-claude-py "帮我修复 bug"      # 一问一答模式
-mini-claude-py --resume           # 恢复上次对话
-mini-claude-py --yolo             # 跳过安全确认
-mini-claude-py --plan             # 只读规划模式
-mini-claude-py --max-cost 0.5     # 最多花 $0.5
-mini-claude-py --max-turns 20     # 最多 20 轮
-mini-claude-py --thinking         # 启用深度思考
-mini-claude-py --model gpt-4o     # 指定模型
+mini-claude-py                    # Interactive REPL mode
+mini-claude-py "fix the bug"      # One-shot mode
+mini-claude-py --resume           # Resume last session
+mini-claude-py --yolo             # Skip safety confirmations
+mini-claude-py --plan             # Read-only plan mode
+mini-claude-py --max-cost 0.5     # Cost limit in USD
+mini-claude-py --max-turns 20     # Max agentic turns
+mini-claude-py --thinking         # Enable extended thinking
+mini-claude-py --model gpt-4o     # Specify model
 ```
 
 ---
 
-## REPL 命令
+## REPL Commands
 
-在交互模式下可以用的命令：
-
-| 命令 | 功能 |
-|------|------|
-| `/clear` | 清空对话历史 |
-| `/plan` | 进入/退出只读规划模式 |
-| `/cost` | 查看 token 用量和费用 |
-| `/compact` | 手动压缩对话（上下文太长时） |
-| `/memory` | 列出已保存的记忆 |
-| `/skills` | 列出可用的技能 |
-| `/export [文件名]` | 导出对话为 Markdown 文件 |
-| `/<技能名>` | 调用技能（如 `/commit`） |
+| Command | Action |
+|---------|--------|
+| `/clear` | Clear conversation history |
+| `/plan` | Toggle plan mode (read-only) |
+| `/cost` | Show token usage and cost |
+| `/compact` | Manually compact conversation |
+| `/memory` | List saved memories |
+| `/skills` | List available skills |
+| `/export [filename]` | Export conversation as Markdown |
+| `/<skill>` | Invoke a skill (e.g. `/commit`) |
 
 ---
 
-## 工具列表
+## Tools
 
-AI 可以调用的 14 个工具：
+14 tools available to the AI:
 
-| 工具 | 做什么 |
-|------|--------|
-| `read_file` | 读文件 |
-| `write_file` | 写文件（自动建目录） |
-| `edit_file` | 精确编辑文件中的某段代码 |
-| `list_files` | 按 glob 模式搜文件 |
-| `grep_search` | 正则搜索代码内容 |
-| `run_shell` | 执行终端命令（实时输出）✨ |
-| `web_search` | DuckDuckGo 搜索互联网 ✨ |
-| `web_fetch` | 抓取指定 URL 的内容 |
-| `agent` | 派子代理独立完成任务 |
-| `skill` | 调用已注册的技能 |
-| `enter_plan_mode` | 进入只读规划模式 |
-| `exit_plan_mode` | 退出规划模式并提交计划审批 |
-| `tool_search` | 搜索可用的延迟加载工具 |
+| Tool | Purpose |
+|------|---------|
+| `read_file` | Read file contents |
+| `write_file` | Create or overwrite files |
+| `edit_file` | Precise string replacement in files |
+| `list_files` | Find files by glob pattern |
+| `grep_search` | Regex search in code |
+| `run_shell` | Execute shell commands (streaming output) ✨ |
+| `web_search` | Search the web via DuckDuckGo ✨ |
+| `web_fetch` | Fetch and parse URL content |
+| `agent` | Spawn sub-agents for isolated tasks |
+| `skill` | Invoke registered skills |
+| `enter_plan_mode` | Enter read-only planning |
+| `exit_plan_mode` | Exit planning with approval workflow |
+| `tool_search` | Search for available deferred tools |
 
-✨ = 二次开发新增或增强
-
----
-
-## 安全机制
-
-| 特性 | 说明 |
-|------|------|
-| 5 种权限模式 | default / plan / acceptEdits / bypassPermissions / dontAsk |
-| 声明式规则 | `.claude/settings.json` 配置 allow/deny 规则 |
-| 路径级权限 ✨ | glob 模式限制 AI 的文件访问范围（如 `read_file(config/**): deny`） |
-| 危险命令检测 | 16 个正则覆盖 `rm`、`sudo`、`git push --force` 等 |
-| 先读后写保护 | 编辑文件前必须先读过 |
+✨ = new or enhanced in this fork
 
 ---
 
-## 与 Claude Code 的对比
+## Security
 
-| 维度 | Claude Code | Mini Claude |
-|------|------------|-------------|
-| 定位 | 生产级编程智能体 | 轻量级 AI 编程助手 |
-| 工具数量 | 66+ | 14（含 web_search） |
-| 多模型支持 | Anthropic | Anthropic / DeepSeek / Ollama / OpenAI ✨ |
-| 错误处理 | 7 种恢复策略 | 错误自修复 + 指数退避重试 ✨ |
-| Shell 输出 | 等待完成 | 实时流式输出 ✨ |
-| 上下文管理 | 4 级压缩 | 4 级压缩 + 大结果持久化 |
-| 权限系统 | 7 层 + AST 分析 | 5 模式 + 规则 + 路径级权限 ✨ |
-| 记忆系统 | 4 类型 + 语义召回 | 4 类型 + 语义召回 + 异步预取 |
-| 代码量 | 50 万+ | ~4200 行（Python） |
+| Feature | Description |
+|---------|-------------|
+| 5 permission modes | default / plan / acceptEdits / bypassPermissions / dontAsk |
+| Declarative rules | allow/deny rules in `.claude/settings.json` |
+| Path-level permissions ✨ | Glob-based file access control (e.g. `read_file(config/**): deny`) |
+| Dangerous command detection | 16 regex patterns covering `rm`, `sudo`, `git push --force`, etc. |
+| Read-before-edit guard | Files must be read before editing |
 
 ---
 
-## 项目结构
+## Comparison with Claude Code
+
+| Aspect | Claude Code | Mini Claude |
+|--------|------------|-------------|
+| Purpose | Production agent | Lightweight assistant |
+| Tools | 66+ | 14 (incl. web_search) |
+| Model support | Anthropic | Anthropic / DeepSeek / Ollama / OpenAI ✨ |
+| Error handling | 7 recovery strategies | Self-healing + exponential backoff ✨ |
+| Shell output | Wait for completion | Real-time streaming ✨ |
+| Context | 4-tier compression | 4-tier compression + large result persistence |
+| Permissions | 7-layer + AST | 5 modes + rules + path-level glob ✨ |
+| Memory | 4 types + semantic recall | 4 types + semantic recall + async prefetch |
+| Code size | 500k+ | ~4200 lines (Python) |
+
+---
+
+## Project Structure
 
 ```
 python/
 ├── mini_claude/
-│   ├── agent.py         # Agent 循环、流式、压缩、Plan Mode
-│   ├── tools.py         # 14 个工具、权限、危险检测
-│   ├── __main__.py      # CLI 入口、REPL、参数解析
-│   ├── prompt.py        # 系统提示词构建
-│   ├── memory.py        # 记忆系统（语义召回）
-│   ├── skills.py        # 技能系统（inline/fork）
-│   ├── subagent.py      # 子代理（3 内置 + 自定义）
-│   ├── mcp_client.py    # MCP JSON-RPC 客户端
-│   ├── ui.py            # 终端 UI
-│   ├── session.py       # 会话持久化
-│   └── frontmatter.py   # YAML frontmatter 解析
+│   ├── agent.py         # Agent loop, streaming, compression, Plan Mode
+│   ├── tools.py         # 14 tools, permissions, danger detection
+│   ├── __main__.py      # CLI entry, REPL, argument parsing
+│   ├── prompt.py        # System prompt builder
+│   ├── memory.py        # Memory system (semantic recall)
+│   ├── skills.py        # Skills system (inline/fork)
+│   ├── subagent.py      # Sub-agents (3 built-in + custom)
+│   ├── mcp_client.py    # MCP JSON-RPC client
+│   ├── ui.py            # Terminal UI
+│   ├── session.py       # Session persistence
+│   └── frontmatter.py   # YAML frontmatter parser
 └── pyproject.toml
 ```
 
@@ -166,8 +164,8 @@ python/
 
 ## License
 
-MIT — 详见 [LICENSE](./LICENSE)
+MIT — see [LICENSE](./LICENSE)
 
-## 致谢
+## Credits
 
-本项目基于 [claude-code-from-scratch](https://github.com/Windy3f3f3f3f/claude-code-from-scratch) (MIT License)，原始教程可在 [这里](https://windy3f3f3f3f.github.io/claude-code-from-scratch/) 阅读。
+Built on [claude-code-from-scratch](https://github.com/Windy3f3f3f3f/claude-code-from-scratch) by [Windy3f3f3f3f](https://github.com/Windy3f3f3f3f) (MIT License). Original tutorial available at [claude-code-from-scratch docs](https://windy3f3f3f3f.github.io/claude-code-from-scratch/).
