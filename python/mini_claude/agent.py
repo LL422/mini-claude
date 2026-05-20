@@ -650,16 +650,21 @@ class Agent:
     # ─── Execute tool (handles agent/skill/plan mode internally) ─────
 
     async def _execute_tool_call(self, name: str, inp: dict) -> str:
-        if name in ("enter_plan_mode", "exit_plan_mode"):
-            return await self._execute_plan_mode_tool(name)
-        if name == "agent":
-            return await self._execute_agent_tool(inp)
-        if name == "skill":
-            return await self._execute_skill_tool(inp)
-        # Route MCP tool calls to the MCP manager
-        if self._mcp_manager.is_mcp_tool(name):
-            return await self._mcp_manager.call_tool(name, inp)
-        return await execute_tool(name, inp, self._read_file_state)
+        try:
+            if name in ("enter_plan_mode", "exit_plan_mode"):
+                return await self._execute_plan_mode_tool(name)
+            if name == "agent":
+                return await self._execute_agent_tool(inp)
+            if name == "skill":
+                return await self._execute_skill_tool(inp)
+            # Route MCP tool calls to the MCP manager
+            if self._mcp_manager.is_mcp_tool(name):
+                return await self._mcp_manager.call_tool(name, inp)
+            return await execute_tool(name, inp, self._read_file_state)
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            return f"Tool {name} failed: {e}\n\nPlease analyze the error and try a different approach."
 
     # ─── Skill fork mode ─────────────────────────────────────
 
