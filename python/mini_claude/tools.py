@@ -605,24 +605,82 @@ def load_permission_rules() -> dict:
     return _cached_rules
 
 
+def _match_path(value: str, pattern: str) -> bool:
+    """Match a path or command string against a glob pattern.
+    Supports *, **, ?, [...].  * does NOT cross directory boundaries
+    when matching a path — use ** for that.
+    For flat strings (no / in value), fnmatch matches the whole string."""
+    normalized = value.replace("\\", "/")
+    norm_pattern = pattern.replace("\\", "/")
+
+    if normalized == norm_pattern:
+        return True
+
+    # Flat value (e.g. shell commands like "rm -rf /tmp"): use fnmatch directly.
+    # If neither value nor pattern has directory separators, match as flat strings.
+    pattern_is_flat = "/" not in norm_pattern
+    value_is_flat = "/" not in normalized
+    if pattern_is_flat or value_is_flat:
+        return fnmatch.fnmatch(normalized, norm_pattern)
+
+    pattern_parts = norm_pattern.split("/")
+    value_parts = normalized.split("/")
+
+    # No ** — segment count must match exactly, each segment matched with fnmatch
+    if "**" not in norm_pattern:
+        if len(pattern_parts) != len(value_parts):
+            return False
+        return all(fnmatch.fnmatch(v, p) for v, p in zip(value_parts, pattern_parts))
+
+    # Recursive **: match segment by segment, ** consumes any number of segments
+    pi = 0
+    vi = 0
+
+    while pi < len(pattern_parts) and vi < len(value_parts):
+        pp = pattern_parts[pi]
+        if pp == "**":
+            if pi == len(pattern_parts) - 1:
+                return True  # trailing ** matches everything
+            next_p = pattern_parts[pi + 1]
+            for vj in range(vi, len(value_parts)):
+                if fnmatch.fnmatch(value_parts[vj], next_p):
+                    pi += 2
+                    vi = vj + 1
+                    break
+            else:
+                return False
+        else:
+            if not fnmatch.fnmatch(value_parts[vi], pp):
+                return False
+            pi += 1
+            vi += 1
+
+    while pi < len(pattern_parts) and pattern_parts[pi] == "**":
+        pi += 1
+    return pi == len(pattern_parts) and vi == len(value_parts)
+
+
 def _matches_rule(rule: dict, tool_name: str, inp: dict) -> bool:
     if rule["tool"] != tool_name:
         return False
     if rule["pattern"] is None:
         return True
 
+    # Pick the value to match against based on tool type
     value = ""
     if tool_name == "run_shell":
         value = inp.get("command", "")
     elif "file_path" in inp:
         value = inp["file_path"]
+    elif "path" in inp:
+        value = inp["path"]
     else:
         return True
 
-    pattern = rule["pattern"]
-    if pattern.endswith("*"):
-        return value.startswith(pattern[:-1])
-    return value == pattern
+    if not value:
+        return True
+
+    return _match_path(value, rule["pattern"])
 
 
 def _check_permission_rules(tool_name: str, inp: dict) -> str | None:
