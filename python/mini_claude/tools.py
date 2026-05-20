@@ -4,6 +4,7 @@ grep_search, run_shell, skill, enter/exit_plan_mode, agent."""
 
 from __future__ import annotations
 
+import asyncio
 import fnmatch
 import json
 import os
@@ -414,25 +415,56 @@ def _grep_python(pattern: str, directory: str, include: str | None) -> str:
     return output
 
 
-def _run_shell(inp: dict) -> str:
+async def _run_shell(inp: dict) -> str:
     try:
         timeout_ms = inp.get("timeout", 30000)
         timeout_s = timeout_ms / 1000
-        result = subprocess.run(
+        proc = await asyncio.create_subprocess_shell(
             inp["command"],
-            shell=True,
-            capture_output=True,
-            text=True,
-            timeout=timeout_s,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
-        output = result.stdout or ""
-        if result.returncode != 0:
-            stderr = f"\nStderr: {result.stderr}" if result.stderr else ""
-            stdout = f"\nStdout: {result.stdout}" if result.stdout else ""
-            return f"Command failed (exit code {result.returncode}){stdout}{stderr}"
-        return output or "(no output)"
-    except subprocess.TimeoutExpired:
-        return f"Command timed out after {inp.get('timeout', 30000)}ms"
+
+        stdout_lines: list[str] = []
+        stderr_lines: list[str] = []
+
+        async def _read_stream(stream, collector: list[str], prefix: str):
+            while True:
+                line = await stream.readline()
+                if not line:
+                    break
+                text = line.decode("utf-8", errors="replace")
+                if prefix:
+                    print(prefix + text, end="", flush=True)
+                else:
+                    print(text, end="", flush=True)
+                collector.append(text)
+
+        try:
+            await asyncio.wait_for(
+                asyncio.gather(
+                    _read_stream(proc.stdout, stdout_lines, ""),
+                    _read_stream(proc.stderr, stderr_lines, ""),
+                ),
+                timeout=timeout_s,
+            )
+            await proc.wait()
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.wait()
+            return f"Command timed out after {timeout_ms}ms\n\nStdout:\n{''.join(stdout_lines)}\nStderr:\n{''.join(stderr_lines)}"
+
+        stdout = "".join(stdout_lines)
+        stderr = "".join(stderr_lines)
+
+        if proc.returncode != 0:
+            result = f"Command failed (exit code {proc.returncode})"
+            if stdout:
+                result += f"\n\nStdout:\n{stdout}"
+            if stderr:
+                result += f"\n\nStderr:\n{stderr}"
+            return result
+        return stdout or stderr or "(no output)"
     except Exception as e:
         return f"Error: {e}"
 
@@ -732,7 +764,10 @@ async def execute_tool(
     handler = handlers.get(name)
     if not handler:
         return f"Unknown tool: {name}"
-    result = _truncate_result(handler(inp))
+    if name == "run_shell":
+        result = _truncate_result(await handler(inp))
+    else:
+        result = _truncate_result(handler(inp))
 
     # Update mtime after successful write/edit
     if name in ("write_file", "edit_file") and read_file_state is not None and not result.startswith("Error"):
