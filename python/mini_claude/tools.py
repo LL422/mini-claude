@@ -23,7 +23,7 @@ READ_TOOLS = {"read_file", "list_files", "grep_search", "web_fetch"}
 EDIT_TOOLS = {"write_file", "edit_file"}
 
 # Concurrency-safe tools can run in parallel (read-only, no side effects)
-CONCURRENCY_SAFE_TOOLS = {"read_file", "list_files", "grep_search", "web_fetch"}
+CONCURRENCY_SAFE_TOOLS = {"read_file", "list_files", "grep_search", "web_fetch", "web_search"}
 
 IS_WIN = sys.platform == "win32"
 
@@ -129,6 +129,18 @@ tool_definitions: list[ToolDef] = [
                 "max_length": {"type": "number", "description": "Maximum content length in characters (default 50000)"},
             },
             "required": ["url"],
+        },
+    },
+    {
+        "name": "web_search",
+        "description": "Search the web using DuckDuckGo and return results with titles, URLs, and snippets. Use this to find current documentation, error solutions, or any information beyond your knowledge cutoff. Combine with web_fetch to read full pages from the returned URLs.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Search query string"},
+                "max_results": {"type": "number", "description": "Maximum number of results (default: 5, max: 10)"},
+            },
+            "required": ["query"],
         },
     },
     {
@@ -459,6 +471,36 @@ def _web_fetch(inp: dict) -> str:
     return text or "(empty response)"
 
 
+def _web_search(inp: dict) -> str:
+    try:
+        from ddgs import DDGS
+    except ImportError:
+        return "Error: ddgs package is not installed. Run: pip install ddgs"
+
+    query = inp.get("query", "")
+    max_results = min(int(inp.get("max_results", 5)), 10)
+
+    try:
+        with DDGS() as ddgs:
+            results = list(ddgs.text(query, max_results=max_results))
+    except Exception as e:
+        return f"Search error: {e}"
+
+    if not results:
+        return f"No results found for '{query}'."
+
+    lines = [f"Search results for '{query}':\n"]
+    for i, r in enumerate(results, 1):
+        title = r.get("title", "Untitled")
+        href = r.get("href", "")
+        body = r.get("body", "")
+        lines.append(f"{i}. {title}")
+        lines.append(f"   URL: {href}")
+        lines.append(f"   {body}")
+        lines.append("")
+    return "\n".join(lines)
+
+
 # ─── Dangerous command patterns ─────────────────────────────
 
 DANGEROUS_PATTERNS = [
@@ -685,6 +727,7 @@ async def execute_tool(
         "grep_search": _grep_search,
         "run_shell": _run_shell,
         "web_fetch": _web_fetch,
+        "web_search": _web_search,
     }
     handler = handlers.get(name)
     if not handler:
